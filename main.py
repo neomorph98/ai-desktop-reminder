@@ -61,8 +61,11 @@ def save(app, data, src):
 
 def main():
     store.init_db()
-    if not os.environ.get("DEEPSEEK_API_KEY"):
-        print("⚠️  未检测到 DEEPSEEK_API_KEY，请把 .env.example 复制为 .env 并填入 key。")
+    info = extractor.current()
+    if not info["has_key"]:
+        print(f"⚠️  当前 LLM 供应商 = {info['provider']}，但未找到对应 API key，请在 .env 配置。")
+    else:
+        print(f"🤖 LLM: {info['provider']} / {info['model']}")
     app = Overlay()
     keyboard.add_hotkey(HOTKEY, on_hotkey)
     print(f"✅ 已启动。复制文字后按 {HOTKEY} 添加提醒。点悬浮窗右上角 ✕ 退出。")
