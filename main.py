@@ -94,7 +94,7 @@ def poll(app):
 
 def save(app, data, src):
     store.add_reminder(data.get("type"), data.get("title"), data.get("time"),
-                       data.get("location"), src)
+                       data.get("time_text"), data.get("location"), src)
     app.refresh()
 
 

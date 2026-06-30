@@ -18,20 +18,25 @@ def init_db():
                 type        TEXT,
                 title       TEXT,
                 start_time  TEXT,
+                time_text   TEXT,
                 location    TEXT,
                 source_text TEXT,
                 created_at  TEXT,
                 done        INTEGER DEFAULT 0
             )"""
         )
+        # 迁移：老版本的库可能没有 time_text 列
+        cols = [r[1] for r in c.execute("PRAGMA table_info(reminders)").fetchall()]
+        if "time_text" not in cols:
+            c.execute("ALTER TABLE reminders ADD COLUMN time_text TEXT")
 
 
-def add_reminder(type_, title, start_time, location, source_text):
+def add_reminder(type_, title, start_time, time_text, location, source_text):
     with _conn() as c:
         c.execute(
-            "INSERT INTO reminders (type,title,start_time,location,source_text,created_at,done)"
-            " VALUES (?,?,?,?,?,?,0)",
-            (type_, title, start_time, location, source_text,
+            "INSERT INTO reminders (type,title,start_time,time_text,location,source_text,created_at,done)"
+            " VALUES (?,?,?,?,?,?,?,0)",
+            (type_, title, start_time, time_text, location, source_text,
              datetime.now().isoformat(timespec="seconds")),
         )
 
@@ -40,7 +45,7 @@ def upcoming(limit=10):
     """未完成的提醒，有时间的排前面、按时间升序。"""
     with _conn() as c:
         cur = c.execute(
-            "SELECT id,type,title,start_time,location,done FROM reminders"
+            "SELECT id,type,title,start_time,time_text,location,done FROM reminders"
             " WHERE done=0 ORDER BY (start_time IS NULL), start_time LIMIT ?",
             (limit,),
         )

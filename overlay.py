@@ -68,7 +68,7 @@ class Overlay:
 
     def _row(self, it):
         icon = "📅" if it.get("type") == "event" else "✅"
-        t = it.get("start_time") or "（无时间）"
+        t = it.get("start_time") or it.get("time_text") or "（无时间）"
         loc = f"  @ {it['location']}" if it.get("location") else ""
         card = tk.Frame(self.body, bg=CARD)
         card.pack(fill="x", pady=3)
@@ -90,7 +90,7 @@ def show_confirm(root, data, source_text, on_save):
     win.title("确认提醒")
     win.attributes("-topmost", True)
     win.configure(bg=BG)
-    win.geometry("380x300")
+    win.geometry("380x360")
 
     fields = {}
 
@@ -103,6 +103,7 @@ def show_confirm(root, data, source_text, on_save):
     add_field("类型 (event / todo)", "type", data.get("type", "todo"))
     add_field("标题", "title", data.get("title"))
     add_field("时间 (YYYY-MM-DDTHH:MM:SS，可留空)", "time", data.get("time"))
+    add_field("时间说明（如 下周末/改天，可留空）", "time_text", data.get("time_text"))
     add_field("地点（可留空）", "location", data.get("location"))
 
     btns = tk.Frame(win, bg=BG)
