@@ -1,0 +1,14 @@
+{
+  "AppVersion": "2.0.0.0",
+  "Title": "AI 日程提醒",
+  "Thumbnail": null,
+  "Preview": null,
+  "Desc": "把 AI 抽取的日程/待办显示在桌面壁纸上，可点击完成（需本程序的本地服务运行）。",
+  "Author": "neomorph98",
+  "License": "MIT",
+  "Type": 1,
+  "FileName": "index.html",
+  "Contact": "https://github.com/neomorph98/ai-desktop-reminder",
+  "IsAbsolutePath": false,
+  "Arguments": ""
+}

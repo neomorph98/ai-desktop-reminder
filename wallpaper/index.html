@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>AI 日程提醒壁纸</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden;
+    font-family:"Microsoft YaHei","Segoe UI",sans-serif;
+    background:radial-gradient(1200px 800px at 80% 15%, #2a2440, #15131f 60%, #0c0b12);
+    color:#e7e3f4; }
+  #wrap { position:absolute; top:0; right:0; height:100%; width:380px;
+    padding:30px 26px; display:flex; flex-direction:column; gap:16px; }
+  #head { display:flex; align-items:flex-start; justify-content:space-between; opacity:.92; }
+  #clock { font-size:36px; font-weight:600; letter-spacing:1px; }
+  #title { font-size:13px; opacity:.5; margin-top:4px; letter-spacing:3px; }
+  #date { font-size:14px; opacity:.6; text-align:right; }
+  #list { display:flex; flex-direction:column; gap:12px; overflow:hidden; }
+  .card { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08);
+    border-radius:14px; padding:14px 16px; backdrop-filter:blur(6px);
+    animation:in .45s cubic-bezier(.2,.8,.2,1) both; position:relative; }
+  .card.soon { border-color:rgba(245,200,90,.55); }
+  .card.over { border-color:rgba(245,110,110,.65);
+    animation:in .45s both, pulse 1.6s ease-in-out infinite; }
+  .ttl { font-size:16px; font-weight:600; margin-bottom:6px; line-height:1.3; padding-right:52px; }
+  .meta { font-size:13px; opacity:.72; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .badge { font-size:11px; padding:1px 8px; border-radius:99px; background:rgba(255,255,255,.1); }
+  .done { position:absolute; top:12px; right:12px; cursor:pointer; border:none;
+    background:rgba(255,255,255,.1); color:#cfe9d2; border-radius:8px; padding:5px 11px;
+    font-size:12px; transition:.15s; }
+  .done:hover { background:rgba(120,220,150,.32); transform:scale(1.05); }
+  #empty { opacity:.45; font-size:14px; margin-top:6px; }
+  @keyframes in { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+  @keyframes pulse { 0%,100%{ box-shadow:0 0 0 0 rgba(245,110,110,0);} 50%{ box-shadow:0 0 0 4px rgba(245,110,110,.20);} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="head">
+    <div><div id="clock">--:--</div><div id="title">AI 日程提醒</div></div>
+    <div id="date"></div>
+  </div>
+  <div id="list"></div>
+  <div id="empty" style="display:none">暂无提醒。<br>选中文字按快捷键添加。</div>
+</div>
+<script>
+  // 用网址方式加载（http）走同源；用文件夹导入（file://）则指向本地服务
+  const API = (location.protocol === 'http:' || location.protocol === 'https:')
+      ? '' : 'http://127.0.0.1:8765';
+  const WK = '日一二三四五六';
+  const p2 = n => String(n).padStart(2, '0');
+
+  function clock() {
+    const d = new Date();
+    document.getElementById('clock').textContent = p2(d.getHours()) + ':' + p2(d.getMinutes());
+    document.getElementById('date').textContent =
+      (d.getMonth() + 1) + '月' + d.getDate() + '日 周' + WK[d.getDay()];
+  }
+
+  function fmt(it) {
+    if (it.start_time) {
+      const d = new Date(it.start_time);
+      if (!isNaN(d)) return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+    }
+    return it.time_text || '无时间';
+  }
+  function state(it) {
+    if (!it.start_time) return '';
+    const t = new Date(it.start_time).getTime();
+    if (isNaN(t)) return '';
+    const diff = t - Date.now();
+    if (diff < 0) return 'over';
+    if (diff < 30 * 60 * 1000) return 'soon';
+    return '';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g,
+      c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  }
+
+  async function done(id) {
+    try { await fetch(API + '/api/done?id=' + id, { method: 'POST' }); } catch (e) {}
+    load();
+  }
+  window.done = done;
+
+  async function load() {
+    let items = [];
+    try { items = await (await fetch(API + '/api/reminders')).json(); }
+    catch (e) { return; }
+    document.getElementById('empty').style.display = items.length ? 'none' : 'block';
+    document.getElementById('list').innerHTML = items.map(it => {
+      const icon = it.type === 'event' ? '📅' : '✅';
+      const loc = it.location ? '<span class="badge">@ ' + esc(it.location) + '</span>' : '';
+      return '<div class="card ' + state(it) + '">' +
+        '<button class="done" onclick="done(' + it.id + ')">完成</button>' +
+        '<div class="ttl">' + icon + ' ' + esc(it.title) + '</div>' +
+        '<div class="meta"><span>🕒 ' + esc(fmt(it)) + '</span>' + loc + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  clock(); load();
+  setInterval(clock, 1000);
+  setInterval(load, 5000);
+</script>
+</body>
+</html>

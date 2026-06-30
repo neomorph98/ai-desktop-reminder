@@ -17,6 +17,7 @@ load_dotenv()
 
 import store
 import extractor
+import server
 from overlay import Overlay, show_confirm, show_message
 
 HOTKEY = os.environ.get("HOTKEY", "ctrl+alt+s")
@@ -105,7 +106,15 @@ def main():
         print(f"⚠️  当前 LLM 供应商 = {info['provider']}，但未找到对应 API key，请在 .env 配置。")
     else:
         print(f"🤖 LLM: {info['provider']} / {info['model']}")
-    app = Overlay()
+    # 启动本地 API 服务（给 Lively 壁纸提供数据 + 接收「完成」点击）
+    port = int(os.environ.get("WALLPAPER_PORT", "8765"))
+    try:
+        server.start_in_thread(port)
+        print(f"🖼️  壁纸服务: http://127.0.0.1:{port}/ （在 Lively 里添加这个网址即可）")
+    except Exception as e:
+        print(f"⚠️  壁纸服务启动失败：{e}")
+    show_overlay = os.environ.get("SHOW_OVERLAY", "1") != "0"
+    app = Overlay(show=show_overlay)
     keyboard.add_hotkey(HOTKEY, on_hotkey)
     print(f"✅ 已启动。复制文字后按 {HOTKEY} 添加提醒。点悬浮窗右上角 ✕ 退出。")
     app.root.after(200, lambda: poll(app))

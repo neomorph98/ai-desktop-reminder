@@ -16,8 +16,10 @@ FONT = "Microsoft YaHei"
 
 
 class Overlay:
-    def __init__(self):
+    def __init__(self, show=True):
         self.root = tk.Tk()
+        if not show:
+            self.root.withdraw()                  # 用 Lively 壁纸时可隐藏右上角小窗
         self.root.overrideredirect(True)          # 无边框
         self.root.attributes("-topmost", True)    # 置顶
         self.root.attributes("-alpha", 0.92)      # 半透明

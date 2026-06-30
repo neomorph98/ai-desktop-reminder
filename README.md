@@ -4,6 +4,24 @@
 
 > 「公开构建」副业的第一个项目。v1 = 剪贴板 → AI 提取 → 本地提醒 + 桌面悬浮窗。
 
+## 快速开始（一键配置）
+
+克隆后在项目目录里运行（二选一）：
+
+```powershell
+./setup.ps1          # PowerShell
+```
+
+或直接**双击 `setup.bat`**。
+
+脚本会自动：装 Python 依赖 → 生成 `.env` → 用 winget 安装 Lively → 应用壁纸。完成后只剩 3 步：
+
+1. 打开 `.env` 填入你的 LLM API key
+2. 运行 `python main.py`
+3. 在 Lively 里给该壁纸开启「鼠标交互」
+
+> 没有 winget（旧版 Windows / Server）时，脚本会打印 Lively 下载链接，手动装即可——不影响其余步骤。
+
 ## 它能做什么
 
 1. 在任何地方**选中**一段话，例：「明天下午 3 点和张总在会议室开会」（选中即可，工具会自动复制）
@@ -59,11 +77,28 @@ python main.py
 - **时间识别不准？** 调 `extractor.py` 里的提示词。
 - **选中文字却没反应 / 抓到的不是选中内容？** 工具靠模拟 `Ctrl+C` 抓取选区；若某些应用复制较慢，把 `main.py` 里 `_grab_selection` 的 `time.sleep(0.15)` 调大（如 `0.3`）。
 
+## 桌面壁纸提醒（Lively Wallpaper，交互式）
+
+> 💡 跑过 `setup.ps1` 的话，Lively 安装 + 壁纸应用已**自动完成**。下面是原理与手动方式。
+
+把提醒显示在桌面壁纸上、还能点「完成」。原理：本程序内置一个本地服务（`server.py`），
+Lively 用 `wallpaper/index.html` 这个 HTML 壁纸从它读数据、把点击回传。
+
+1. 装 [Lively Wallpaper](https://github.com/rocksdanister/lively)（开源免费，Microsoft Store 也有）。
+2. 正常启动本程序：`python main.py`（会自动起壁纸服务，默认 `http://127.0.0.1:8765/`）。
+3. Lively → **Add Wallpaper** → 粘贴网址 `http://127.0.0.1:8765/` → 应用。
+   （或把 `wallpaper/` 文件夹拖进 Lively 导入。）
+4. 在 Lively 的该壁纸设置里**开启鼠标交互**，就能点卡片上的「完成」。
+
+- 只想用壁纸、隐藏右上角小窗：`.env` 里设 `SHOW_OVERLAY=0`。
+- 换端口：`.env` 里设 `WALLPAPER_PORT`（壁纸网址也要跟着改）。
+- 调试：先在浏览器打开 `http://127.0.0.1:8765/` 看效果，再加进 Lively。
+
 ## 路线图
 
 - [x] v1 剪贴板 + AI 抽取（多供应商）+ 本地提醒 + 桌面文字
 - [ ] v2 接 Google Calendar
-- [ ] v3 桌面动画提醒（Lively Wallpaper / Qt）
+- [x] v3 桌面壁纸提醒（Lively，交互式 ✅）
 - [ ] v4 浏览器扩展：网页聊天右键一键添加
 - [ ] v5 Outlook / 国内邮箱
 
