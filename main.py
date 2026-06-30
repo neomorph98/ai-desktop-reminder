@@ -6,6 +6,7 @@
 - tkinter 用 after() 轮询队列，在主线程里弹窗，保证线程安全。
 """
 import os
+import time
 import queue
 
 from dotenv import load_dotenv
@@ -22,9 +23,47 @@ HOTKEY = os.environ.get("HOTKEY", "ctrl+alt+s")
 events = queue.Queue()
 
 
+def _grab_selection() -> str:
+    """模拟 Ctrl+C 复制「当前选中的文字」，再读剪贴板。
+
+    这样用户「选中文字 → 按快捷键」即可，不必先手动 Ctrl+C；
+    若没有选中文字，则回退到原有剪贴板内容（兼容「先复制再按键」）。
+    """
+    prev = ""
+    try:
+        prev = pyperclip.paste()
+    except Exception:
+        pass
+    # 松开可能还按着的快捷键修饰键，避免和接下来的 Ctrl+C 串台
+    for k in ("alt", "ctrl", "shift", "windows"):
+        try:
+            keyboard.release(k)
+        except Exception:
+            pass
+    try:
+        pyperclip.copy("")            # 先清空，便于判断到底有没有复制到东西
+    except Exception:
+        pass
+    time.sleep(0.05)
+    keyboard.send("ctrl+c")           # 模拟复制选中的文字
+    time.sleep(0.15)                  # 给系统时间把选区写进剪贴板（慢的应用可调大）
+    text = ""
+    try:
+        text = pyperclip.paste()
+    except Exception:
+        pass
+    if not text:                      # 没选中 → 回退到原剪贴板（兼容先复制的用法）
+        text = prev
+    try:
+        pyperclip.copy(prev)          # 还原用户原来的剪贴板，别破坏它
+    except Exception:
+        pass
+    return text
+
+
 def on_hotkey():
     """在 keyboard 线程里执行。"""
-    text = pyperclip.paste()
+    text = _grab_selection()
     if not text or not text.strip():
         events.put(("empty", None, None))
         return
@@ -40,7 +79,7 @@ def poll(app):
         while True:
             kind, data, src = events.get_nowait()
             if kind == "empty":
-                show_message(app.root, "剪贴板是空的。先复制一段文字再按快捷键。")
+                show_message(app.root, "没捕捉到文字。请先用鼠标选中一段文字，再按快捷键。")
             elif kind == "error":
                 show_message(app.root, f"抽取失败：{data}")
             elif kind == "result":
