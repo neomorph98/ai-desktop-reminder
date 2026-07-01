@@ -30,6 +30,7 @@
     font-size:12px; transition:.15s; }
   .done:hover { background:rgba(120,220,150,.32); transform:scale(1.05); }
   #empty { opacity:.45; font-size:14px; margin-top:6px; }
+  #stamp { position:absolute; bottom:12px; right:18px; opacity:.4; font-size:11px; letter-spacing:.5px; }
   @keyframes in { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
   @keyframes pulse { 0%,100%{ box-shadow:0 0 0 0 rgba(245,110,110,0);} 50%{ box-shadow:0 0 0 4px rgba(245,110,110,.20);} }
 </style>
@@ -42,6 +43,7 @@
   </div>
   <div id="list"></div>
   <div id="empty" style="display:none">暂无提醒。<br>选中文字按快捷键添加。</div>
+  <div id="stamp">启动中…</div>
 </div>
 <script>
   // 用网址方式加载（http）走同源；用文件夹导入（file://）则指向本地服务
@@ -99,15 +101,25 @@
         '<div class="meta"><span>🕒 ' + esc(fmt(it)) + '</span>' + loc + '</div>' +
       '</div>';
     }).join('');
+    var s = document.getElementById('stamp');
+    if (s) s.textContent = '⟳ 更新于 ' + p2(new Date().getHours()) + ':' +
+      p2(new Date().getMinutes()) + ':' + p2(new Date().getSeconds());
   }
 
   clock(); load();
   setInterval(clock, 1000);
   setInterval(load, 5000);
-  // 被 Lively 暂停后，一旦重新可见/唤醒就立即刷新，避免"看着还是旧的"
+  // 被 Lively 暂停后，一旦重新可见/唤醒就立即刷新
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
   window.addEventListener('focus', load);
   window.addEventListener('pageshow', load);
+  // Web Worker 心跳：后台页面的普通 setInterval 会被浏览器节流/冻结，
+  // 而 Worker 的定时器不受影响 → 每 5s 触发主线程 load()，绕过节流。
+  try {
+    var _hb = new Worker(URL.createObjectURL(new Blob(
+      ['setInterval(function(){postMessage(0)},5000)'], { type: 'application/javascript' })));
+    _hb.onmessage = load;
+  } catch (e) {}
 </script>
 </body>
 </html>
