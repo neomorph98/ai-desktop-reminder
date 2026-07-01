@@ -8,6 +8,7 @@
 import os
 import time
 import queue
+import subprocess
 
 from dotenv import load_dotenv
 import pyperclip
@@ -99,6 +100,33 @@ def save(app, data, src):
     app.refresh()
 
 
+def _ensure_lively():
+    """Best-effort：让 Lively 跑起来并显示我们的壁纸（仅 Windows，失败静默）。"""
+    if os.environ.get("AUTO_START_LIVELY", "1") == "0":
+        return
+    base = os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "Lively Wallpaper")
+    if not os.path.isdir(base):
+        return  # 未装 Lively，或装的是 Store 版（路径不同）→ 静默跳过
+    gui = os.path.join(base, "Lively.exe")
+    cli = os.path.join(base, "livelycu.exe")
+    wp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wallpaper")
+    try:
+        tl = subprocess.run(["tasklist", "/fi", "imagename eq Lively.exe"],
+                            capture_output=True, text=True, timeout=5).stdout
+        running = "Lively.exe" in tl
+    except Exception:
+        running = False
+    try:
+        if not running and os.path.isfile(gui):
+            subprocess.Popen([gui])                       # 启动 Lively，会恢复上次的壁纸
+            print("🖼️  已启动 Lively（将恢复上次应用的壁纸）")
+        elif running and os.path.isfile(cli):
+            subprocess.Popen([cli, "setwp", "--file", wp])  # 已在跑 → 确保是我们的壁纸
+            print("🖼️  已让 Lively 应用壁纸（wallpaper/）")
+    except Exception as e:
+        print(f"⚠️  自动处理 Lively 失败：{e}（可手动打开 Lively）")
+
+
 def main():
     store.init_db()
     info = extractor.current()
@@ -113,6 +141,7 @@ def main():
         print(f"🖼️  壁纸服务: http://127.0.0.1:{port}/ （在 Lively 里添加这个网址即可）")
     except Exception as e:
         print(f"⚠️  壁纸服务启动失败：{e}")
+    _ensure_lively()
     show_overlay = os.environ.get("SHOW_OVERLAY", "1") != "0"
     app = Overlay(show=show_overlay)
     keyboard.add_hotkey(HOTKEY, on_hotkey)
