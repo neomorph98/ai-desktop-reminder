@@ -48,12 +48,15 @@ def _grab_selection() -> str:
         pass
     time.sleep(0.05)
     keyboard.send("ctrl+c")           # 模拟复制选中的文字
-    time.sleep(0.15)                  # 给系统时间把选区写进剪贴板（慢的应用可调大）
     text = ""
-    try:
-        text = pyperclip.paste()
-    except Exception:
-        pass
+    for _ in range(16):               # 轮询等待复制落地，最多 ~0.8s（慢应用也够）
+        time.sleep(0.05)
+        try:
+            text = pyperclip.paste()
+        except Exception:
+            text = ""
+        if text:
+            break
     if not text:                      # 没选中 → 回退到原剪贴板（兼容先复制的用法）
         text = prev
     try:
@@ -88,7 +91,8 @@ def poll(app):
                 if isinstance(data, dict) and data.get("type") in ("event", "todo"):
                     show_confirm(app.root, data, src, on_save=lambda d, s: save(app, d, s))
                 else:
-                    show_message(app.root, "没在剪贴板里找到日程或待办。")
+                    snippet = (src or "").strip()[:60] or "（空）"
+                    show_message(app.root, f"没识别出日程/待办。\n抓到的文字是：\n「{snippet}」")
     except queue.Empty:
         pass
     app.root.after(200, lambda: poll(app))
