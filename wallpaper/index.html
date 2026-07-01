@@ -86,8 +86,9 @@
 
   async function load() {
     let items = [];
-    try { items = await (await fetch(API + '/api/reminders')).json(); }
-    catch (e) { return; }
+    try {   // 加时间戳 + no-store，防止 CEF/浏览器缓存旧数据
+      items = await (await fetch(API + '/api/reminders?t=' + Date.now(), { cache: 'no-store' })).json();
+    } catch (e) { return; }
     document.getElementById('empty').style.display = items.length ? 'none' : 'block';
     document.getElementById('list').innerHTML = items.map(it => {
       const icon = it.type === 'event' ? '📅' : '✅';
