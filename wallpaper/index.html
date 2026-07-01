@@ -104,6 +104,10 @@
   clock(); load();
   setInterval(clock, 1000);
   setInterval(load, 5000);
+  // 被 Lively 暂停后，一旦重新可见/唤醒就立即刷新，避免"看着还是旧的"
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+  window.addEventListener('focus', load);
+  window.addEventListener('pageshow', load);
 </script>
 </body>
 </html>
