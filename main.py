@@ -8,6 +8,7 @@
 import os
 import time
 import queue
+import threading
 import subprocess
 
 from dotenv import load_dotenv
@@ -23,6 +24,7 @@ from overlay import Overlay, show_confirm, show_message
 
 HOTKEY = os.environ.get("HOTKEY", "ctrl+alt+s")
 events = queue.Queue()
+_busy = threading.Lock()   # 防止连按热键时两次抓取/请求互相踩踏
 
 
 def _grab_selection() -> str:
@@ -66,17 +68,28 @@ def _grab_selection() -> str:
     return text
 
 
-def on_hotkey():
-    """在 keyboard 线程里执行。"""
-    text = _grab_selection()
-    if not text or not text.strip():
-        events.put(("empty", None, None))
-        return
+def _handle_hotkey():
+    """抓选区 + 调 LLM，在独立线程里执行（见 on_hotkey）。"""
+    if not _busy.acquire(blocking=False):
+        return  # 上一次还没处理完（剪贴板抓取有状态，重入会互相污染）
     try:
-        data = extractor.extract(text)
-        events.put(("result", data, text))
-    except Exception as e:  # 网络 / 解析等异常
-        events.put(("error", str(e), text))
+        text = _grab_selection()
+        if not text or not text.strip():
+            events.put(("empty", None, None))
+            return
+        try:
+            data = extractor.extract(text)
+            events.put(("result", data, text))
+        except Exception as e:  # 网络 / 解析等异常
+            events.put(("error", str(e), text))
+    finally:
+        _busy.release()
+
+
+def on_hotkey():
+    """keyboard 的回调线程里只做「派活」：网络请求可能要几秒甚至超时，
+    若直接在回调线程里跑，期间所有热键都会失灵。"""
+    threading.Thread(target=_handle_hotkey, daemon=True).start()
 
 
 def poll(app):

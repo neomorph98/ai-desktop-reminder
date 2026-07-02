@@ -9,7 +9,7 @@ import json
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 import store
 
@@ -22,6 +22,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _send(self, code, body=b"", ctype="application/json; charset=utf-8"):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")          # 允许壁纸跨源访问
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
@@ -41,9 +42,14 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/reminders":
             self._json(store.upcoming(20))
             return
-        rel = path.lstrip("/") or "index.html"
+        rel = unquote(path).lstrip("/") or "index.html"
         fp = os.path.normpath(os.path.join(WALLPAPER_DIR, rel))
-        if not fp.startswith(WALLPAPER_DIR) or not os.path.isfile(fp):
+        # 用 commonpath 而不是 startswith：后者会放行 wallpaper_xxx 这类同前缀目录
+        try:
+            inside = os.path.commonpath([WALLPAPER_DIR, fp]) == WALLPAPER_DIR
+        except ValueError:  # 不同盘符等
+            inside = False
+        if not inside or not os.path.isfile(fp):
             self._send(404, b"not found", "text/plain; charset=utf-8")
             return
         ext = os.path.splitext(fp)[1].lower()

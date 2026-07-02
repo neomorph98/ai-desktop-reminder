@@ -75,7 +75,7 @@ python main.py
 - **想换快捷键？** 改 `.env` 里的 `HOTKEY`。
 - **想换模型？** 改 `.env` 里的 `LLM_PROVIDER`（或用 `LLM_MODEL` 覆盖具体模型）。
 - **时间识别不准？** 调 `extractor.py` 里的提示词。
-- **选中文字却没反应 / 抓到的不是选中内容？** 工具靠模拟 `Ctrl+C` 抓取选区；若某些应用复制较慢，把 `main.py` 里 `_grab_selection` 的 `time.sleep(0.15)` 调大（如 `0.3`）。
+- **选中文字却没反应 / 抓到的不是选中内容？** 工具靠模拟 `Ctrl+C` 抓取选区，并轮询等待最多约 0.8 秒；若某些应用复制特别慢，把 `main.py` 里 `_grab_selection` 的轮询次数（`range(16)`）调大。
 
 ## 桌面壁纸提醒（Lively Wallpaper，交互式）
 

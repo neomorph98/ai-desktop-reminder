@@ -1,17 +1,21 @@
 """本地存储：SQLite。v1 不接真实日历，先把提醒存在本机。"""
 import os
 import sqlite3
+from contextlib import closing
 from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reminders.db")
 
 
 def _conn():
-    return sqlite3.connect(DB_PATH)
+    # sqlite3 的 `with conn:` 只管事务提交，不会关连接；
+    # 这里统一用 closing() 包一层，保证每次用完就关，避免句柄泄漏
+    # （壁纸每 5s 轮询一次，长期运行泄漏会很可观）。
+    return closing(sqlite3.connect(DB_PATH))
 
 
 def init_db():
-    with _conn() as c:
+    with _conn() as c, c:
         c.execute(
             """CREATE TABLE IF NOT EXISTS reminders (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,7 +36,7 @@ def init_db():
 
 
 def add_reminder(type_, title, start_time, time_text, location, source_text):
-    with _conn() as c:
+    with _conn() as c, c:
         c.execute(
             "INSERT INTO reminders (type,title,start_time,time_text,location,source_text,created_at,done)"
             " VALUES (?,?,?,?,?,?,?,0)",
@@ -43,7 +47,7 @@ def add_reminder(type_, title, start_time, time_text, location, source_text):
 
 def upcoming(limit=10):
     """未完成的提醒，有时间的排前面、按时间升序。"""
-    with _conn() as c:
+    with _conn() as c:  # 只读，无需事务
         cur = c.execute(
             "SELECT id,type,title,start_time,time_text,location,done FROM reminders"
             " WHERE done=0 ORDER BY (start_time IS NULL), start_time LIMIT ?",
@@ -54,5 +58,5 @@ def upcoming(limit=10):
 
 
 def mark_done(rid):
-    with _conn() as c:
+    with _conn() as c, c:
         c.execute("UPDATE reminders SET done=1 WHERE id=?", (rid,))

@@ -10,7 +10,10 @@ import re
 import json
 from datetime import datetime
 
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
+
+# 网络请求超时（秒）。没有超时的话，断网/服务端卡住时热键线程会永久挂起。
+TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "30"))
 
 # 供应商注册表：name -> 默认配置。可被 .env 里的 LLM_* 覆盖。
 PROVIDERS = {
@@ -97,6 +100,20 @@ def current() -> dict:
     }
 
 
+_clients = {}
+
+
+def _client(cfg) -> OpenAI:
+    """按 (base_url, key) 复用客户端，避免每次热键都重建连接池。"""
+    key = (cfg["base_url"], cfg["api_key"])
+    cli = _clients.get(key)
+    if cli is None:
+        cli = OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"] or None,
+                     timeout=TIMEOUT, max_retries=1)
+        _clients[key] = cli
+    return cli
+
+
 def _parse_json(content: str) -> dict:
     if not content:
         return {"type": "none"}
@@ -118,7 +135,7 @@ def extract(text: str) -> dict:
         return {"type": "none"}
 
     cfg = _config()
-    client = OpenAI(api_key=cfg["api_key"], base_url=cfg["base_url"] or None)
+    client = _client(cfg)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S %A")
     kwargs = dict(
         model=cfg["model"],
@@ -132,8 +149,10 @@ def extract(text: str) -> dict:
         try:
             resp = client.chat.completions.create(
                 response_format={"type": "json_object"}, **kwargs)
-        except Exception:
-            resp = client.chat.completions.create(**kwargs)  # 回退：不带 json 模式
+        except BadRequestError:
+            # 只在「参数不被支持」(400) 时回退不带 json 模式重试；
+            # 认证/网络等错误直接抛出，别白白重试一次拖慢报错。
+            resp = client.chat.completions.create(**kwargs)
     else:
         resp = client.chat.completions.create(**kwargs)
     return _parse_json(resp.choices[0].message.content)

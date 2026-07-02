@@ -129,4 +129,5 @@ def show_message(root, msg):
     tk.Label(win, text=msg, fg=FG, bg=BG, font=(FONT, 10),
              wraplength=300, justify="left").pack(padx=24, pady=20)
     tk.Button(win, text="好", command=win.destroy, bg=CARD, fg=FG, width=8).pack(pady=(0, 16))
-    win.after(5000, win.destroy)
+    # 用户可能已手动点「好」关掉，直接 destroy 会对已销毁窗口报 TclError
+    win.after(5000, lambda: win.winfo_exists() and win.destroy())
